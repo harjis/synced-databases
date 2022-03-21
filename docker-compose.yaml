@@ -1,21 +1,8 @@
 version: "3.6"
 
 services:
-  postgres:
-    image: debezium/postgres:12
-    hostname: postgres
-    container_name: postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - ./db-scripts/initialize.sql:/usr/initialize.sql
-      - ./db-scripts/foreign-key-dependency.sql:/usr/foreign-key-dependency.sql
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.0.1
+    image: confluentinc/cp-zookeeper:6.1.0
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -24,7 +11,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
   kafka:
-    image: confluentinc/cp-enterprise-kafka:7.0.1
+    image: confluentinc/cp-enterprise-kafka:6.1.0
     hostname: kafka
     container_name: kafka
     depends_on:
@@ -34,12 +21,94 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENERS: INTERNAL://kafka:29092,EXTERNAL_HOSTMACHINE://kafka:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL_HOSTMACHINE://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL_HOSTMACHINE:PLAINTEXT
+
+      KAFKA_LISTENERS: INTERNAL://kafka:29092,EXTERNAL_HOSTMACHINE://kafka:9092,EXTERNAL_DOCKER_HOST://kafka:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL_HOSTMACHINE://localhost:9092,EXTERNAL_DOCKER_HOST://host.docker.internal:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL_HOSTMACHINE:PLAINTEXT,EXTERNAL_DOCKER_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:6.1.0
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:29092"
+
+  kowl:
+    image: quay.io/cloudhut/kowl
+    container_name: kowl
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BROKERS: kafka:29092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: "http://schema-registry:8081"
+
+  customers-db:
+    image: debezium/postgres:12
+    hostname: customers-db
+    container_name: customers-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./db-scripts/initialize-customers.sql:/docker-entrypoint-initdb.d/initialize-customers.sql
+
+  orders-db:
+    image: debezium/postgres:12
+    hostname: orders-db
+    container_name: orders-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./db-scripts/initialize-orders.sql:/docker-entrypoint-initdb.d/initialize-orders.sql
+
+  customers-connect:
+    image: d0rka/debezium-postgres-connect-base
+    hostname: customers-connect
+    depends_on:
+      - kafka
+      - customers-db
+    links:
+      - customers-db
+    ports:
+      - "18083:18083"
+    volumes:
+      - ./customers/connector.json:/debezium-postgres-connect-base/connector.json
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_GROUP_ID: 1
+      CONNECT_CONFIG_STORAGE_TOPIC: customer_connect_configs
+      CONNECT_OFFSET_STORAGE_TOPIC: customer_connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: customer_connect_statuses
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_REST_ADVERTISED_HOST_NAME: customers-connect
+      CONNECT_REST_PORT: 18083
+      CONNECTORS_FILEPATH: /debezium-postgres-connect-base/connector.json
