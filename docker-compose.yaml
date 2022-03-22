@@ -112,3 +112,35 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: customers-connect
       CONNECT_REST_PORT: 18083
       CONNECTORS_FILEPATH: /debezium-postgres-connect-base/connector.json
+
+  orders-connect:
+    image: d0rka/jdbc-debezium-postgres-connect-base
+    hostname: orders-connect
+    depends_on:
+      - kafka
+      - orders-db
+      - customers-connect
+    links:
+      - orders-db
+    ports:
+      - "18084:18084"
+    volumes:
+      - ./orders/connector.json:/debezium-postgres-connect-base/connector.json
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_GROUP_ID: 2
+      CONNECT_CONFIG_STORAGE_TOPIC: order_connect_configs
+      CONNECT_OFFSET_STORAGE_TOPIC: order_connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: order_connect_statuses
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "true"
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_REST_ADVERTISED_HOST_NAME: orders-connect
+      CONNECT_REST_PORT: 18084
+      CONNECTORS_FILEPATH: /debezium-postgres-connect-base/connector.json
