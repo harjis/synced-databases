@@ -54,3 +54,7 @@ Check contents of the SINK database:
   3 | bill |  51
 (3 rows)
 ```
+
+## Notes:
+
+- DB sync behaviour can be achieved without schema-registry by using `org.apache.kafka.connect.json.JsonConverter` in key and value converter
