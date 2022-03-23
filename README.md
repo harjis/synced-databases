@@ -1,4 +1,3 @@
-
 ![Architecture](./Architecture.png "Architecture")
 
 ### Start:
@@ -8,6 +7,9 @@ docker-compose up
 ```
 
 ## Source:
+
+Source connector has one transformation: `transforms=route`. It is a RegexRouter which just changes the name of the
+topic.
 
 Check contents of the SOURCE database:
 
@@ -20,9 +22,6 @@ Check contents of the SOURCE database:
   3 | bill |  51
 (3 rows)
 ```
-
-Source connector has one transformation: `transforms=route`. It is a RegexRouter which just changes
-the name of the topic.
 
 ### DB operations:
 
@@ -46,6 +45,9 @@ docker-compose exec customers-db psql -U postgres customers -c "DELETE FROM cust
 
 ## Sink:
 
+Sink connector has one transformation: `transforms=unwrap`. It is a [ExtractNewRecordState](https://debezium.io/documentation/reference/stable/transformations/event-flattening.html)
+which flattens Debezium Change Event into actual record.
+
 Check contents of the SINK database:
 
 ```
@@ -60,4 +62,5 @@ Check contents of the SINK database:
 
 ## Notes:
 
-- DB sync behaviour can be achieved without schema-registry by using `org.apache.kafka.connect.json.JsonConverter` in key and value converter
+- DB sync behaviour can be achieved without schema-registry by using `org.apache.kafka.connect.json.JsonConverter` in
+  key and value converter
