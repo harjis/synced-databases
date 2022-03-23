@@ -45,7 +45,8 @@ docker-compose exec customers-db psql -U postgres customers -c "DELETE FROM cust
 
 ## Sink:
 
-Sink connector has one transformation: `transforms=unwrap`. It is a [ExtractNewRecordState](https://debezium.io/documentation/reference/stable/transformations/event-flattening.html)
+Sink connector has one transformation: `transforms=unwrap`. It is
+a [ExtractNewRecordState](https://debezium.io/documentation/reference/stable/transformations/event-flattening.html)
 which flattens Debezium Change Event into actual record.
 
 Check contents of the SINK database:
@@ -58,6 +59,26 @@ Check contents of the SINK database:
   2 | sue  |  25
   3 | bill |  51
 (3 rows)
+```
+
+### Schema Evolution:
+
+Add column:
+
+```shell
+docker-compose exec customers-db bash -c 'psql -U postgres -f /usr/add-column-to-customers.sql'
+```
+
+Change column type (This is an invalid operation and won't evolve schema correctly. Orders-connect will also fail):
+
+```shell
+docker-compose exec customers-db bash -c 'psql -U postgres -f /usr/change-column-type.sql'
+```
+
+Drop column (This does not evolve schema as well. The operation is ignored on consumer-side):
+
+```shell
+docker-compose exec customers-db bash -c 'psql -U postgres -f /usr/drop-column-from-customers.sql'
 ```
 
 ## Notes:

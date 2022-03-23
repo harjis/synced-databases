@@ -10,6 +10,7 @@
       "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
       "transforms.unwrap.drop.tombstones": "false",
       "auto.create": "true",
+      "auto.evolve": "true",
       "insert.mode": "upsert",
       "delete.enabled": "true",
       "pk.fields": "id",
