@@ -1,3 +1,6 @@
+
+![Architecture](./Architecture.png "Architecture")
+
 ### Start:
 
 ```shell script
