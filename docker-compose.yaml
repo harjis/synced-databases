@@ -53,10 +53,23 @@ services:
       - "8080:8080"
     depends_on:
       - kafka
+    entrypoint: /bin/sh
+    command: -c "echo \"$$KOWL_CONFIG_FILE\" > /tmp/config.yml; /app/kowl"
     environment:
-      KAFKA_BROKERS: kafka:29092
-      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
-      KAFKA_SCHEMAREGISTRY_URLS: "http://schema-registry:8081"
+      CONFIG_FILEPATH: /tmp/config.yml
+      KOWL_CONFIG_FILE: |
+        kafka:
+          brokers: ["kafka:29092"]
+          schemaRegistry:
+            enabled: true
+            urls: ["http://schema-registry:8081"]
+        connect:
+          enabled: true
+          clusters:
+            - name: customers-connect
+              url: http://customers-connect:18083
+            - name: orders-connect
+              url: http://orders-connect:18084
 
   customers-db:
     image: debezium/postgres:12
